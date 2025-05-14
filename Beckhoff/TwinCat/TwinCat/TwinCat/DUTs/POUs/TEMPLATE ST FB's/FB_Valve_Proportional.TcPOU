@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Valve_Proportional" Id="{da0115b3-ea2c-4aae-a278-9b3ea61fc250}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_ProportionalValveControl
+VAR_INPUT
+    // Inputs
+    Open : BOOL;                 // Command to open the valve (useful for manual override)
+    Close : BOOL;                // Command to close the valve (useful for manual override)
+    SafetyInterlock : BOOL;      // Safety interlock status (TRUE = safe to operate)
+    Setpoint : REAL;             // Desired valve position in automatic mode (0 = closed, 100 = fully open)
+    ManualPosition : REAL;       // Desired valve position in manual mode (0 = closed, 100 = fully open)
+    Mode : BOOL;                 // TRUE = Automatic mode, FALSE = Manual mode
+    ProportionalSignal : REAL;   // Continuous control signal (0-100), directly controlling the proportional valve
+    MaxValvePosition : REAL := 100.0; // Maximum valve position (100%)
+    MinValvePosition : REAL := 0.0;   // Minimum valve position (0%)
+END_VAR
+VAR_OUTPUT
+    // Outputs
+    ValveControlSignal : REAL := 0.0; // Output control signal for the valve actuator (0-100%)
+    ValveStatus : INT := 0;            // Current status of the valve (0 = closed, 1 = open, 2 = error)
+    ValvePosition : REAL := 0.0;       // Current position of the valve (0 = closed, 100 = fully open)
+    ValveError : BOOL := FALSE;        // Error status of the valve
+    // Internal variables
+    CurrentPosition : REAL := 0.0;    // Current position of the valve actuator
+END_VAR
+VAR
+    SafetyCheck : BOOL := TRUE;        // Safety check for interlock status
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Main Control Logic
+
+    // Check safety interlock before allowing valve operation
+    IF NOT SafetyInterlock THEN
+        ValveStatus := 2;           // Set status to error if safety interlock fails
+        ValveControlSignal := 0.0;  // Ensure no control signal is sent to the valve
+        ValveError := TRUE;         // Indicate an error due to safety interlock failure
+        RETURN;                     // Exit the function block if safety interlock fails
+    END_IF
+
+    // Handle valve operation logic in automatic or manual mode
+    IF Mode THEN
+        // Automatic Mode: Control valve position based on setpoint
+        IF Setpoint > ValvePosition THEN
+            // If setpoint is greater than current position, increase the control signal
+            ValveControlSignal := (Setpoint / MaxValvePosition) * 100.0; // Map setpoint to control signal (0-100%)
+        ELSIF Setpoint < ValvePosition THEN
+            // If setpoint is less than current position, decrease the control signal
+            ValveControlSignal := (Setpoint / MaxValvePosition) * 100.0; // Map setpoint to control signal (0-100%)
+        ELSE
+            // If setpoint is equal to current position, keep control signal at current value
+            ValveControlSignal := (Setpoint / MaxValvePosition) * 100.0;
+        END_IF
+        // Update the valve position in automatic mode
+        ValvePosition := Setpoint;
+    ELSE
+        // Manual Mode: Control valve position based on manual input
+        IF ManualPosition > ValvePosition THEN
+            // If manual position is greater than current position, increase the control signal
+            ValveControlSignal := (ManualPosition / MaxValvePosition) * 100.0; // Map manual position to control signal (0-100%)
+        ELSIF ManualPosition < ValvePosition THEN
+            // If manual position is less than current position, decrease the control signal
+            ValveControlSignal := (ManualPosition / MaxValvePosition) * 100.0; // Map manual position to control signal (0-100%)
+        ELSE
+            // If manual position matches current position, keep control signal at current value
+            ValveControlSignal := (ManualPosition / MaxValvePosition) * 100.0;
+        END_IF
+        // Update the valve position in manual mode
+        ValvePosition := ManualPosition;
+    END_IF
+
+    // Open/Close Logic based on inputs (useful for manual override)
+    IF Open AND NOT Close THEN
+        // If Open is TRUE and Close is FALSE, open the valve
+        ValveControlSignal := 100.0;       // Fully open
+        ValveStatus := 1;                   // Valve is open
+        ValvePosition := MaxValvePosition;  // Fully open
+    ELSIF Close AND NOT Open THEN
+        // If Close is TRUE and Open is FALSE, close the valve
+        ValveControlSignal := 0.0;         // Fully closed
+        ValveStatus := 0;                   // Valve is closed
+        ValvePosition := MinValvePosition; // Fully closed
+    ELSE
+        // If neither Open nor Close is TRUE, valve remains at its current position
+        ValveControlSignal := ValveControlSignal; // Maintain current control signal
+    END_IF
+
+    // Update status and position feedback
+    IF ValveError THEN
+        // If there is an error, the valve cannot operate
+        ValveControlSignal := 0.0;         // No control signal due to error
+        ValvePosition := 0.0;              // Set to closed position on error
+    ELSE
+        // Otherwise, update valve position based on the control signal
+        ValvePosition := (ValveControlSignal / 100.0) * MaxValvePosition; // Map control signal (0-100%) to valve position (0-100)
+    END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Valve_Proportional">
+      <LineId Id="59" Count="0" />
+      <LineId Id="61" Count="64" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

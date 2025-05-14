@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Tank" Id="{7692fc74-fec6-462a-9a03-007854ea545a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK TankControl
+
+VAR_INPUT
+    // Inputs for control
+    AutoMode : BOOL;                    // Auto mode flag (TRUE for Auto, FALSE for Manual)
+    ManualFill : BOOL;                  // Manual Fill flag (TRUE to fill the tank manually)
+    ManualEmpty : BOOL;                 // Manual Empty flag (TRUE to empty the tank manually)
+    CurrentLevel : REAL;                // Current tank level (0-100%)
+    LowLevelLimit : REAL;               // Low level limit (0-100%)
+    HighLevelLimit : REAL;              // High level limit (0-100%)
+    TopLevelLimit : REAL;               // Top level limit (0-100%)
+    EmptyLevelLimit : REAL;             // Empty level limit (0-100%)
+    
+    // Flowmeters and pressure sensors
+    FillFlowMeter : REAL;               // Flow rate through the fill valve (m3/hr or L/min)
+    EmptyFlowMeter : REAL;              // Flow rate through the empty valve (m3/hr or L/min)
+    InletPressure : REAL;               // Pressure at the tank inlet (Pa)
+    OutletPressure : REAL;              // Pressure at the tank outlet (Pa)
+END_VAR
+
+VAR_OUTPUT
+    // Outputs for controlling the system
+    PumpRunning : BOOL;                 // Pump running status (TRUE if running, FALSE if stopped)
+    FillValveOpen : BOOL;               // Fill valve open status (TRUE if open, FALSE if closed)
+    BottomValveOpen : BOOL;             // Bottom valve open status (TRUE if open, FALSE if closed)
+    TankStatus : STRING[50];            // Current tank status (e.g., 'Filling', 'Emptying', 'Level Maintained')
+END_VAR
+
+VAR
+    OverFillProtection : BOOL;          // Overfill protection status (TRUE if active)
+    FaultDetected : BOOL;               // Fault indicator (TRUE if fault detected)
+    LowLevelReached : BOOL;             // Low level reached (TRUE when the tank reaches the low level)
+    HighLevelReached : BOOL;            // High level reached (TRUE when the tank reaches the high level)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Main control logic
+
+// Check for overfill protection
+IF CurrentLevel >= TopLevelLimit THEN
+    OverFillProtection := TRUE;         // Prevent overfill if the level reaches or exceeds the top limit
+    FillValveOpen := FALSE;             // Close the fill valve to prevent further filling
+    PumpRunning := FALSE;               // Stop the pump to avoid overfilling
+    TankStatus := 'Overfill Protection Active';  // Update status
+ELSE
+    OverFillProtection := FALSE;
+END_IF
+
+// Check if the tank level reaches the low level
+IF CurrentLevel <= LowLevelLimit THEN
+    LowLevelReached := TRUE;
+    PumpRunning := FALSE;              // Stop the pump to prevent running on an empty tank
+    BottomValveOpen := FALSE;          // Close the empty valve to prevent further emptying
+    TankStatus := 'Low Level Reached'; // Update status
+ELSE
+    LowLevelReached := FALSE;
+END_IF
+
+// Main logic based on Auto or Manual mode
+IF AutoMode THEN
+    // Auto Mode: Maintain the desired level
+    IF CurrentLevel < LowLevelLimit THEN
+        // Fill if the current level is below the low limit
+        IF NOT OverFillProtection THEN
+            FillValveOpen := TRUE;       // Open the fill valve
+            BottomValveOpen := FALSE;    // Close the bottom valve
+            PumpRunning := TRUE;         // Start the pump
+            TankStatus := 'Filling';
+        END_IF
+    ELSIF CurrentLevel > HighLevelLimit THEN
+        // Empty if the current level is above the high limit
+        FillValveOpen := FALSE;          // Close the fill valve
+        BottomValveOpen := TRUE;         // Open the bottom valve
+        PumpRunning := TRUE;             // Start the pump
+        TankStatus := 'Emptying';
+    ELSE
+        // Maintain level within the bounds (no action needed)
+        FillValveOpen := FALSE;
+        BottomValveOpen := FALSE;
+        PumpRunning := FALSE;
+        TankStatus := 'Level Maintained';
+    END_IF
+ELSE
+    // Manual Mode: Perform actions based on manual control inputs
+    IF ManualFill THEN
+        // Manual fill to the HighLevelLimit
+        IF CurrentLevel < HighLevelLimit THEN
+            FillValveOpen := TRUE;       // Open the fill valve
+            BottomValveOpen := FALSE;    // Close the bottom valve
+            PumpRunning := TRUE;         // Start the pump
+            TankStatus := 'Filling to High Level';
+        ELSE
+            FillValveOpen := FALSE;      // Close the fill valve
+            BottomValveOpen := FALSE;    // Close the bottom valve
+            PumpRunning := FALSE;        // Stop the pump
+            TankStatus := 'High Level Reached';
+        END_IF
+    ELSIF ManualEmpty THEN
+        // Manual empty to the LowLevelLimit
+        IF CurrentLevel > LowLevelLimit THEN
+            FillValveOpen := FALSE;      // Close the fill valve
+            BottomValveOpen := TRUE;     // Open the bottom valve
+            PumpRunning := TRUE;         // Start the pump
+            TankStatus := 'Emptying to Low Level';
+        ELSE
+            FillValveOpen := FALSE;      // Close the fill valve
+            BottomValveOpen := FALSE;    // Close the bottom valve
+            PumpRunning := FALSE;        // Stop the pump
+            TankStatus := 'Low Level Reached';
+        END_IF
+    END_IF
+END_IF
+
+// Flow detection (fault detection)
+FaultDetected := (FillFlowMeter = 0) OR (EmptyFlowMeter = 0);  // No flow detected from fill or empty meters
+IF FaultDetected THEN
+    TankStatus := 'Fault Detected'; // Update status in case of fault
+END_IF
+
+// Status monitoring
+IF NOT FaultDetected THEN
+    IF OverFillProtection THEN
+        TankStatus := 'Overfill Protection Active';  // Indicate overfill protection status
+    ELSIF LowLevelReached THEN
+        TankStatus := 'Low Level Reached'; // Indicate low level status
+    ELSIF AutoMode THEN
+        TankStatus := 'Auto Mode Active';   // Indicate that the system is in Auto Mode
+    ELSE
+        TankStatus := 'Manual Mode Active'; // Indicate that the system is in Manual Mode
+    END_IF
+END_IF
+
+END_FUNCTION_BLOCK
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Tank">
+      <LineId Id="557" Count="96" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

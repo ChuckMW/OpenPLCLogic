@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="CYL" Id="{7fd40004-3eaa-41f9-8018-5432a255226d}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK CylinderControl
+
+VAR_INPUT
+    // Control Inputs
+    ExtendCommand : BOOL;              // Command to extend the cylinder (TRUE to extend)
+    RetractCommand : BOOL;             // Command to retract the cylinder (TRUE to retract)
+    SingleActingMode : BOOL;           // TRUE if using single-acting solenoid mode, FALSE for dual-acting mode
+
+    CylinderPosition : REAL;           // Cylinder position feedback (0 = fully retracted, 100 = fully extended)
+    ExtendLimit : REAL;                // Cylinder extended limit (0 to 100, percentage)
+    RetractLimit : REAL;               // Cylinder retracted limit (0 to 100, percentage)
+
+    DebounceTime : TIME;               // Debounce time to prevent false triggering
+    ExtendDelay : TIME;                // Extend action delay
+    RetractDelay : TIME;               // Retract action delay
+
+    // Safety Inputs
+    SafetyLock : BOOL;                 // Safety lock input (TRUE if the system is locked out for safety)
+    ManualOverride : BOOL;             // Manual override (TRUE if manual mode is active)
+    SafetyPosition : REAL;             // Safety position (if provided, checks if the cylinder is in a safe position to operate)
+    SafetyRange : REAL;                // Safety position range to ensure cylinder is within a safe operational range
+END_VAR
+
+VAR_OUTPUT
+    // Outputs for solenoid valve control
+    ExtendSolenoid : BOOL;             // Extend solenoid control (TRUE to activate)
+    RetractSolenoid : BOOL;            // Retract solenoid control (TRUE to activate)
+    FaultDetected : BOOL;              // Fault detection (TRUE if any fault is detected)
+    CylinderStatus : STRING[50];       // Status of the cylinder (e.g., 'Extending', 'Retracting', 'Position OK')
+
+    // Detailed Monitoring Outputs
+    CylinderMoving : BOOL;             // TRUE if the cylinder is moving (either extending or retracting)
+    ExtendSolenoidStatus : BOOL;       // TRUE if extend solenoid is activated
+    RetractSolenoidStatus : BOOL;      // TRUE if retract solenoid is activated
+    LastFaultStatus : STRING[50];      // Stores the last fault message for diagnostics
+END_VAR
+
+VAR
+    // Internal variables for controlling logic
+    ExtendTimer : TON;                 // Timer for extend delay
+    RetractTimer : TON;                // Timer for retract delay
+    DebounceTimer : TON;               // Timer for debounce logic
+    LastExtendCommand : BOOL;          // Last extend command value
+    LastRetractCommand : BOOL;         // Last retract command value
+    CylinderMovingFlag : BOOL;         // Internal flag to track if the cylinder is moving
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// Fault detection logic
+FaultDetected := FALSE;
+LastFaultStatus := '';  // Reset the fault status message on each cycle
+
+// Check for any faults in position feedback or solenoid operation
+IF CylinderPosition < 0 OR CylinderPosition > 100 THEN
+    FaultDetected := TRUE;             // Fault if position feedback is out of expected range
+    LastFaultStatus := 'Fault: Position Error';
+    CylinderStatus := 'Fault: Position Error';
+ELSIF SingleActingMode THEN
+    // In single-acting mode, check if extending beyond the limit
+    IF CylinderPosition >= ExtendLimit THEN
+        FaultDetected := TRUE;         // Fault if trying to extend beyond the limit in single-acting mode
+        LastFaultStatus := 'Fault: Single-Acting Extension Limit Reached';
+        CylinderStatus := 'Fault: Single-Acting Extension Limit Reached';
+    END_IF
+END_IF
+
+// Safety Interlock Logic
+IF SafetyLock THEN
+    // If safety lock is enabled, no operation is allowed
+    FaultDetected := TRUE;
+    LastFaultStatus := 'Fault: Safety Lock Active';
+    CylinderStatus := 'Fault: Safety Lock Active';
+    ExtendSolenoid := FALSE;
+    RetractSolenoid := FALSE;
+    CylinderMovingFlag := FALSE;  // Ensure cylinder is not moving
+ELSIF ManualOverride THEN
+    // If manual override is enabled, allow operation regardless of other safety checks
+    FaultDetected := FALSE;
+    LastFaultStatus := '';
+    CylinderStatus := 'Manual Override Active';
+ELSE
+    // Normal operation without lock or manual override, check safety position
+    IF CylinderPosition < SafetyPosition OR CylinderPosition > (SafetyPosition + SafetyRange) THEN
+        FaultDetected := TRUE;
+        LastFaultStatus := 'Fault: Unsafe Position';
+        CylinderStatus := 'Fault: Unsafe Position';
+        ExtendSolenoid := FALSE;
+        RetractSolenoid := FALSE;
+        CylinderMovingFlag := FALSE;  // Prevent movement if unsafe position
+    END_IF
+END_IF
+
+// Debounce logic for the extend/retract commands
+DebounceTimer(IN := (ExtendCommand <> LastExtendCommand) OR (RetractCommand <> LastRetractCommand), PT := DebounceTime);
+IF DebounceTimer.Q THEN
+    // If the debounce timer expires, accept the new command
+    LastExtendCommand := ExtendCommand;
+    LastRetractCommand := RetractCommand;
+END_IF
+
+// Extend logic
+IF NOT FaultDetected AND NOT SafetyLock THEN
+    IF ExtendCommand AND CylinderPosition < ExtendLimit THEN
+        // Start the extend process with delay
+        ExtendTimer(IN := TRUE, PT := ExtendDelay);
+        IF ExtendTimer.Q THEN
+            ExtendSolenoid := TRUE;      // Activate extend solenoid
+            RetractSolenoid := FALSE;    // Deactivate retract solenoid
+            CylinderMovingFlag := TRUE;  // Indicate that the cylinder is moving
+            CylinderStatus := 'Extending';
+        END_IF
+    ELSE
+        ExtendSolenoid := FALSE;          // Stop the extend solenoid if fully extended
+        CylinderStatus := 'Fully Extended';
+    END_IF
+ELSIF NOT ExtendCommand AND CylinderPosition >= ExtendLimit THEN
+    // Stop the extend solenoid when the limit is reached and no extend command
+    ExtendSolenoid := FALSE;
+    CylinderStatus := 'Position OK';
+END_IF
+
+// Retract logic
+IF NOT FaultDetected AND NOT SafetyLock THEN
+    IF RetractCommand AND CylinderPosition > RetractLimit THEN
+        // Start the retract process with delay
+        RetractTimer(IN := TRUE, PT := RetractDelay);
+        IF RetractTimer.Q THEN
+            ExtendSolenoid := FALSE;     // Deactivate extend solenoid
+            RetractSolenoid := TRUE;     // Activate retract solenoid
+            CylinderMovingFlag := TRUE;  // Indicate that the cylinder is moving
+            CylinderStatus := 'Retracting';
+        END_IF
+    ELSE
+        RetractSolenoid := FALSE;         // Stop the retract solenoid if fully retracted
+        CylinderStatus := 'Fully Retracted';
+    END_IF
+ELSIF NOT RetractCommand AND CylinderPosition <= RetractLimit THEN
+    // Stop the retract solenoid when the limit is reached and no retract command
+    RetractSolenoid := FALSE;
+    CylinderStatus := 'Position OK';
+END_IF
+
+// Single-Acting Mode Logic
+IF SingleActingMode AND CylinderPosition >= ExtendLimit THEN
+    // In single-acting mode, the cylinder can only extend
+    ExtendSolenoid := TRUE;             // Keep extend solenoid active
+    RetractSolenoid := FALSE;           // No retract solenoid control
+    CylinderStatus := 'Single-Acting: Fully Extended';
+END_IF
+
+// Monitoring the movement status and solenoid states
+CylinderMoving := ExtendSolenoid OR RetractSolenoid; // The cylinder is moving if either solenoid is active
+
+ExtendSolenoidStatus := ExtendSolenoid; // Reflect the state of the extend solenoid
+RetractSolenoidStatus := RetractSolenoid; // Reflect the state of the retract solenoid
+
+// If cylinder is not moving, deactivate both solenoids
+IF NOT CylinderMovingFlag THEN
+    ExtendSolenoid := FALSE;
+    RetractSolenoid := FALSE;
+END_IF
+
+END_FUNCTION_BLOCK
+]]></ST>
+    </Implementation>
+    <LineIds Name="CYL">
+      <LineId Id="63" Count="115" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

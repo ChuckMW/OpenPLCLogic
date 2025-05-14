@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="Reject_Conveyor" Id="{841d379b-4069-40d2-afb2-209b017e22dd}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_RejectConveyorControl
+VAR_INPUT
+    StartConveyor : BOOL;                (* Start conveyor input *)
+    StopConveyor : BOOL;                 (* Stop conveyor input *)
+    ReverseDirection : BOOL;             (* Reverse direction input *)
+    EmergencyStop : BOOL;                (* Emergency stop input *)
+    ModeSelect : BOOL;                   (* Mode Select: TRUE = Auto, FALSE = Manual *)
+    ResetFault : BOOL;                   (* Reset Fault input *)
+    ConveyorStartDelay : TIME := T#2s;   (* Start delay timer (if needed) *)
+    ConveyorStopDelay : TIME := T#2s;    (* Stop delay timer (if needed) *)
+    ProximitySensor : BOOL;              (* Proximity sensor input to detect rotation *)
+    RejectItem : BOOL;                   (* Trigger to reject an item *)
+    RotationTimeout : TIME := T#5s;      (* Timeout for rotation detection *)
+    RejectMechanism : BOOL := FALSE;     (* Reject mechanism (e.g., diverter) activated *)
+END_VAR
+
+VAR_OUTPUT
+    ConveyorStatus : STRING;             (* Conveyor status message *)
+    ConveyorRunning : BOOL;              (* Conveyor running flag *)
+    ConveyorDirection : STRING;          (* Conveyor direction: "Forward" / "Reverse" *)
+    FaultCondition : BOOL;               (* Conveyor fault flag *)
+    FaultLog : STRING;                   (* Log of the last fault *)
+    ConveyorMotorStatus : BOOL;          (* Motor status: TRUE = Running, FALSE = Stopped *)
+    StatusMessage : STRING;              (* Detailed status message for monitoring *)
+    RotationFault : BOOL;                (* Rotation fault condition *)
+    RejectStatus : STRING;               (* Status of the reject mechanism *)
+END_VAR
+
+VAR
+    StartTimer : TON;                    (* Timer for start delay *)
+    StopTimer : TON;                     (* Timer for stop delay *)
+    RotationTimer : TON;                 (* Timer for detecting rotation *)
+    FaultLogged : BOOL;                  (* Flag to log the fault once *)
+    ConveyorState : BOOL;                (* Conveyor motor running state *)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+(* Main Control Logic *)
+IF EmergencyStop THEN
+    ConveyorRunning := FALSE;            (* Stop the conveyor immediately *)
+    ConveyorMotorStatus := FALSE;       (* Turn off motor *)
+    ConveyorStatus := 'Emergency Stop Activated';  (* Update status *)
+    FaultCondition := TRUE;             (* Set fault condition *)
+    FaultLog := 'Emergency Stop Activated';
+    StatusMessage := 'Emergency stop engaged, conveyor halted.';
+    RejectMechanism := FALSE;            (* Deactivate reject mechanism during emergency stop *)
+    RETURN;                             (* Exit as emergency stop has priority *)
+END_IF
+
+(* Fault Detection: Check for Conveyor Motor Fault or Overload *)
+IF FaultCondition AND NOT FaultLogged THEN
+    FaultLog := 'Conveyor Motor Fault';
+    FaultLogged := TRUE;                (* Log fault only once *)
+    ConveyorStatus := 'Fault Detected'; (* Conveyor in fault state *)
+    ConveyorMotorStatus := FALSE;       (* Turn off motor *)
+    StatusMessage := 'Conveyor motor fault detected, halting conveyor.';
+    RETURN;                             (* Exit if fault is detected *)
+END_IF
+
+(* Rotation Monitoring: Check if Proximity Sensor detects rotation *)
+IF ConveyorMotorStatus AND NOT ProximitySensor THEN
+    RotationTimer(IN := TRUE, PT := RotationTimeout); (* Start timer for rotation timeout *)
+    IF RotationTimer.Q THEN
+        RotationFault := TRUE;          (* Set rotation fault if timeout occurs *)
+        ConveyorStatus := 'Rotation Fault Detected'; (* Set fault status *)
+        StatusMessage := 'No rotation detected, fault occurred.';
+        FaultCondition := TRUE;         (* Set fault condition *)
+        FaultLog := 'Rotation fault: No movement detected within timeout period.';
+        ConveyorMotorStatus := FALSE;  (* Turn off motor *)
+        RejectMechanism := FALSE;      (* Turn off reject mechanism in fault condition *)
+        RETURN;                         (* Exit to avoid further operations in fault state *)
+    END_IF
+ELSE
+    RotationTimer(IN := FALSE);           (* Reset rotation timer when rotation is detected *)
+    RotationFault := FALSE;               (* Clear rotation fault if movement is detected *)
+END_IF
+
+(* Reject Conveyor Logic: Handle Rejection of Items *)
+IF RejectItem THEN
+    RejectMechanism := TRUE;              (* Activate reject mechanism, e.g., diverter, blast, etc. *)
+    ConveyorStatus := 'Item Rejected';    (* Update status to indicate item rejection *)
+    RejectStatus := 'Item has been rejected from the conveyor.';
+    StatusMessage := 'Rejecting item, diverting from conveyor.';
+ELSE
+    RejectMechanism := FALSE;             (* Deactivate reject mechanism *)
+    RejectStatus := 'No item rejection';  (* No item rejection *)
+END_IF
+
+(* Conveyor Operation Logic (Manual Mode) *)
+IF NOT ModeSelect THEN
+    IF StartConveyor THEN
+        ConveyorState := TRUE;           (* Start conveyor *)
+        ConveyorRunning := TRUE;
+        ConveyorMotorStatus := TRUE;    (* Motor running *)
+        ConveyorStatus := 'Conveyor Running in Manual Mode';
+        ConveyorDirection := 'Forward';  (* Assume forward direction by default *)
+        StatusMessage := 'Conveyor started in manual mode, running forward.';
+    ELSIF StopConveyor THEN
+        ConveyorState := FALSE;          (* Stop conveyor *)
+        ConveyorRunning := FALSE;
+        ConveyorMotorStatus := FALSE;   (* Motor stopped *)
+        ConveyorStatus := 'Conveyor Stopped in Manual Mode';
+        StatusMessage := 'Conveyor stopped in manual mode.';
+    END_IF
+END_IF
+
+(* Conveyor Operation Logic (Automatic Mode) *)
+IF ModeSelect THEN
+    (* Start Conveyor with delay *)
+    IF StartConveyor AND NOT StartTimer.Q THEN
+        StartTimer(IN := TRUE, PT := ConveyorStartDelay);  (* Start delay timer *)
+        ConveyorMotorStatus := TRUE;        (* Turn on motor after delay *)
+        ConveyorDirection := IF ReverseDirection THEN 'Reverse' ELSE 'Forward';  (* Direction control *)
+        StatusMessage := 'Conveyor starting in auto mode with delay.';
+    END_IF
+    
+    IF StartTimer.Q THEN
+        ConveyorState := TRUE;              (* Start conveyor motor after delay *)
+        ConveyorRunning := TRUE;
+        ConveyorStatus := 'Conveyor Running in Auto Mode';
+        StatusMessage := 'Conveyor started in auto mode.';
+    END_IF
+
+    (* Stop Conveyor with delay *)
+    IF StopConveyor AND NOT StopTimer.Q THEN
+        StopTimer(IN := TRUE, PT := ConveyorStopDelay);  (* Stop delay timer *)
+        StatusMessage := 'Conveyor stopping in auto mode with delay.';
+    END_IF
+    
+    IF StopTimer.Q THEN
+        ConveyorState := FALSE;             (* Stop conveyor motor *)
+        ConveyorRunning := FALSE;
+        ConveyorMotorStatus := FALSE;      (* Motor stopped *)
+        ConveyorStatus := 'Conveyor Stopped in Auto Mode';
+        StatusMessage := 'Conveyor stopped in auto mode.';
+    END_IF
+END_IF
+
+(* Handle Fault Reset *)
+IF ResetFault THEN
+    FaultCondition := FALSE;              (* Clear fault condition *)
+    ConveyorRunning := FALSE;             (* Stop conveyor *)
+    ConveyorMotorStatus := FALSE;        (* Turn off motor *)
+    FaultLog := 'Fault Reset';            (* Log fault reset *)
+    FaultLogged := FALSE;                (* Allow new fault detection *)
+    ConveyorStatus := 'Conveyor Stopped'; (* Reset status *)
+    ConveyorDirection := 'Forward';      (* Reset direction to forward *)
+    StatusMessage := 'Fault condition reset, conveyor stopped.';
+END_IF
+
+(* Return detailed status for monitoring purposes *)
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="Reject_Conveyor">
+      <LineId Id="52" Count="115" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

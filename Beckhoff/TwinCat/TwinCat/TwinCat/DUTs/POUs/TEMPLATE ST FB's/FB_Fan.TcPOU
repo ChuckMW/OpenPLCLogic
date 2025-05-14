@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Fan" Id="{867051a1-ec69-4cdb-9975-48c3db32c72d}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FanControl
+
+VAR_INPUT
+    // Fan Control Inputs
+    FanMode : BOOL;                   // TRUE for variable speed fan, FALSE for non-variable speed fan
+    ManualOnOff : BOOL;                // TRUE to manually turn the fan on, FALSE to turn it off
+    SetpointPressure : REAL;          // Setpoint pressure (for auto control)
+    CurrentPressure : REAL;           // Current differential pressure measurement
+
+    RampUpTime : REAL;                // Ramp-up time for the variable speed fan (seconds)
+    RampDownTime : REAL;              // Ramp-down time for the variable speed fan (seconds)
+    StartDelay : REAL;                // Start delay time (seconds)
+    StopDelay : REAL;                 // Stop delay time (seconds)
+
+END_VAR
+
+VAR_OUTPUT
+    // Fan Control Outputs
+    FanRunning : BOOL;                // TRUE if the fan is running, FALSE if stopped
+    FanSpeed : REAL;                  // Speed of the fan (0 to 100 for variable speed)
+    FanStatus : STRING[50];           // Status of the fan (e.g., 'Running', 'Stopped', 'Ramp Up', etc.)
+END_VAR
+
+VAR
+    // Internal variables for managing control states
+    TargetSpeed : REAL;               // Target speed of the fan (0 to 100 for variable speed)
+    StartTimer : TON;                 // Timer for start delay
+    StopTimer : TON;                  // Timer for stop delay
+    RampUpTimer : TON;                // Timer for ramp-up delay (variable speed fan)
+    RampDownTimer : TON;              // Timer for ramp-down delay (variable speed fan)
+    IsRunning : BOOL;                 // Indicates whether the fan is currently running
+    IsRampUp : BOOL;                 // Indicates if the fan is ramping up
+    IsRampDown : BOOL;               // Indicates if the fan is ramping down
+    LastPressure : REAL;             // Stores the last pressure value for comparison
+END_VAR
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Fan control logic
+
+// Check if the fan is selected to be variable speed or non-variable speed
+IF FanMode THEN
+    // Variable Speed Fan Control
+    IF ManualOnOff THEN
+        FanRunning := TRUE;
+        FanSpeed := 100;                // Full speed when manually ON
+        FanStatus := 'Manual ON';
+    ELSIF CurrentPressure > SetpointPressure THEN
+        // Auto control based on differential pressure
+        IF NOT IsRunning THEN
+            // Start delay
+            StartTimer(IN := TRUE, PT := T#5s);
+            IF StartTimer.Q THEN
+                IsRunning := TRUE;
+                FanSpeed := 0;          // Start from 0% speed
+                FanStatus := 'Starting';
+            END_IF
+        ELSE
+            // Ramp up fan speed gradually
+            IF CurrentPressure < SetpointPressure THEN
+                FanSpeed := MIN(FanSpeed + (100 / RampUpTime), 100);  // Ramp up speed
+                FanStatus := 'Ramping Up';
+            ELSE
+                FanStatus := 'Target Pressure Reached';
+            END_IF
+        END_IF
+    ELSIF CurrentPressure < SetpointPressure THEN
+        // Ramp down fan speed gradually
+        IF IsRunning THEN
+            IF NOT IsRampDown THEN
+                RampDownTimer(IN := TRUE, PT := T#5s);  // Start ramp-down timer
+                IF RampDownTimer.Q THEN
+                    FanSpeed := MAX(FanSpeed - (100 / RampDownTime), 0);  // Ramp down speed
+                    FanStatus := 'Ramping Down';
+                    IF FanSpeed <= 0 THEN
+                        FanRunning := FALSE;
+                        IsRunning := FALSE;
+                        FanSpeed := 0;
+                        FanStatus := 'Stopped';
+                    END_IF
+                END_IF
+            END_IF
+        END_IF
+    ELSE
+        FanRunning := FALSE;              // Stop the fan if pressure is at setpoint
+        FanSpeed := 0;                    // Fan speed is 0% when stopped
+        FanStatus := 'Stopped';
+    END_IF
+ELSE
+    // Non-Variable Speed Fan Control
+    IF ManualOnOff THEN
+        FanRunning := TRUE;
+        FanSpeed := 100;                  // Full speed when manually ON
+        FanStatus := 'Manual ON';
+    ELSIF CurrentPressure > SetpointPressure THEN
+        // Start the fan based on pressure if in auto mode
+        StartTimer(IN := TRUE, PT := T#5s);
+        IF StartTimer.Q THEN
+            FanRunning := TRUE;
+            FanSpeed := 100;              // Run at full speed
+            FanStatus := 'Running at Full Speed';
+        END_IF
+    ELSE
+        // Stop the fan when pressure is below setpoint
+        StopTimer(IN := TRUE, PT := T#5s);
+        IF StopTimer.Q THEN
+            FanRunning := FALSE;         // Stop the fan after delay
+            FanSpeed := 0;                // Fan speed is 0% when stopped
+            FanStatus := 'Stopped';
+        END_IF
+    END_IF
+END_IF
+
+END_FUNCTION_BLOCK
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Fan">
+      <LineId Id="46" Count="75" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
