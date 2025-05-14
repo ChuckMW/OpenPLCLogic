@@ -15,7 +15,7 @@ Got ideas or improvements? Feel free to submit a pull request or open an issue! 
 
 ## 📜 License
 
-Shared with ❤️ under the MIT License.
+Shared with under the MIT License.
 
 ---
 Happy automating! 🎉
