@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_LevelSensor" Id="{a9e464c6-0ffd-47f6-adc7-bb729d1bea9c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_LevelTransmitter
+VAR_INPUT
+    // Inputs for level transmitter
+    RawAnalogInput : REAL := 0.0;              // Raw analog input from level transmitter (e.g., 4-20mA or 0-10V)
+    AnalogMinValue : REAL := 0.0;               // Minimum raw analog value (e.g., 4mA or 0V)
+    AnalogMaxValue : REAL := 100.0;             // Maximum raw analog value (e.g., 20mA or 10V)
+    FaultLimit : REAL := 10.0;                  // Fault detection limit for analog sensor
+    Deadband : REAL := 0.5;                     // Optional deadband control for level measurement changes
+END_VAR
+VAR_OUTPUT
+    // Outputs for level transmitter
+    ScaledLevelOutput : REAL := 0.0;            // Scaled level output in engineering units
+    SensorStatus : BOOL := TRUE;                // Sensor status (TRUE = operational, FALSE = faulty)
+    FaultFlag : BOOL := FALSE;                  // Fault detection flag (TRUE = fault detected)
+    RawLevelValue : REAL := 0.0;                // Unprocessed raw level value
+END_VAR
+VAR
+	
+    // Internal variables
+    LastRawAnalogValue : REAL := 0.0;           // Store last raw analog input value for deadband control
+    FaultDetected : BOOL := FALSE;              // Internal flag for fault detection
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Main Control Method
+
+    // Store the raw analog input value for diagnostic purposes
+    RawLevelValue := RawAnalogInput;
+
+    // Check if the raw analog value is within the acceptable range
+    IF RawAnalogInput < AnalogMinValue OR RawAnalogInput > AnalogMaxValue THEN
+        // If the value is out of range, set fault detected and update sensor status
+        FaultDetected := TRUE;
+    ELSE
+        // If within range, no fault detected
+        FaultDetected := FALSE;
+    END_IF
+
+    // Fault Detection Flag: If fault detected, signal the fault flag
+    IF FaultDetected THEN
+        FaultFlag := TRUE;  // Indicate that a fault has occurred
+        SensorStatus := FALSE;  // Sensor is in a fault condition
+    ELSE
+        FaultFlag := FALSE;  // Clear fault flag if no fault is detected
+        SensorStatus := TRUE;  // Sensor is operational
+    END_IF
+
+    // Apply Deadband Control (Optional): If the change in level is smaller than the deadband, do not update
+    IF ABS(RawAnalogInput - LastRawAnalogValue) > Deadband THEN
+        // If the change is greater than the deadband, proceed with scaling the value
+        ScaledLevelOutput := ((RawAnalogInput - AnalogMinValue) / (AnalogMaxValue - AnalogMinValue)) * 100.0;  // Scale to 0-100%
+        LastRawAnalogValue := RawAnalogInput;  // Update the last raw analog value for deadband comparison
+    ELSE
+        // If the change is less than the deadband, do not update the output
+        ScaledLevelOutput := ScaledLevelOutput;  // Retain the previous scaled value
+    END_IF
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_LevelSensor">
+      <LineId Id="56" Count="0" />
+      <LineId Id="58" Count="31" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

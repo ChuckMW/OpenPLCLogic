@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="SensorProcessing" Id="{386e712b-c5c8-483b-906c-cd83a9224b2e}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_SensorProcessing
+VAR_INPUT
+    SensorInputs : ARRAY[1..10] OF BOOL;  (* Array of sensor inputs *)
+    DebounceTime : TIME := T#100ms;        (* Debounce time for sensor inputs *)
+    ResetFault : BOOL;                     (* Manual reset input *)
+END_VAR
+
+VAR_OUTPUT
+    FaultCondition : BOOL;                 (* Flag indicating fault condition *)
+    FaultLog : STRING;                      (* Log of the last detected fault *)
+    SensorStatus : ARRAY[1..10] OF BOOL;   (* Current sensor status *)
+    FaultSignal : BOOL;                    (* Output to indicate fault condition *)
+END_VAR
+
+VAR
+    DebounceTimers : ARRAY[1..10] OF TON;  (* Timer for each sensor for debouncing *)
+    PreviousSensorStatus : ARRAY[1..10] OF BOOL; (* Previous status of sensors to compare against *)
+    FaultLogged : BOOL;                    (* Flag to ensure fault is logged only once *)
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+(* Main Logic *)
+FOR i := 1 TO 10 DO
+    (* Debounce Logic: Check if sensor input changes and trigger timer *)
+    IF SensorInputs[i] <> PreviousSensorStatus[i] THEN
+        DebounceTimers[i](IN := TRUE, PT := DebounceTime);  (* Start debounce timer *)
+    END_IF
+    
+    (* If debounce timer has completed and sensor state is stable, update status *)
+    IF DebounceTimers[i].Q THEN
+        SensorStatus[i] := SensorInputs[i];  (* Update the stable sensor status *)
+        DebounceTimers[i](IN := FALSE);      (* Reset debounce timer *)
+    END_IF
+    
+    (* Check for Fault Condition: If any sensor fails, set fault flag *)
+    IF NOT SensorStatus[i] THEN
+        FaultCondition := TRUE;
+        FaultLog := CONCAT('Fault detected on Sensor ', INT_TO_STRING(i));
+        FaultSignal := TRUE;
+        
+        (* Log fault only once *)
+        IF NOT FaultLogged THEN
+            FaultLogged := TRUE;
+            (* Optionally log to an HMI, Database, or external file here *)
+        END_IF
+    END_IF
+END_FOR
+
+(* Reset Fault Condition Logic *)
+IF ResetFault THEN
+    FaultCondition := FALSE;               (* Clear fault condition *)
+    FaultSignal := FALSE;                   (* Deactivate fault signal *)
+    FaultLog := 'No Fault';                 (* Reset the fault log *)
+    FaultLogged := FALSE;                   (* Reset fault logged flag *)
+    (* Reset Sensor Status *)
+    FOR i := 1 TO 10 DO
+        SensorStatus[i] := TRUE;            (* Assume sensors are okay initially *)
+    END_FOR
+END_IF
+
+(* Optionally, you can add more complex diagnostics or filtering logic here *)
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="SensorProcessing">
+      <LineId Id="28" Count="0" />
+      <LineId Id="30" Count="41" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

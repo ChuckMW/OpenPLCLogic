@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Valve" Id="{dd906fd2-7446-4c56-a893-e1161f9380b0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Valve
+VAR_INPUT
+    // Inputs
+    Open : BOOL;                 // Command to open the valve
+    Close : BOOL;                // Command to close the valve
+    SafetyInterlock : BOOL;      // Safety interlock status (TRUE = safe to operate)
+    Setpoint : REAL;             // Desired position in automatic mode (0 = closed, 100 = fully open)
+    ManualPosition : REAL;       // Desired position in manual mode (0 = closed, 100 = fully open)
+END_VAR
+VAR_IN_OUT
+    Mode : BOOL;                 // TRUE = Automatic mode, FALSE = Manual mode
+END_VAR
+VAR_OUTPUT
+
+    // Outputs
+    ValveControlOpen : BOOL;     // Output to open the valve actuator
+    ValveControlClose : BOOL;    // Output to close the valve actuator
+    ValveStatus : INT := 0;      // Current status of the valve (0 = closed, 1 = open, 2 = error)
+    ValvePosition : REAL := 0.0; // Current position of the valve (0 = closed, 100 = fully open)
+    ValveError : BOOL := FALSE;  // Error status of the valve
+
+    // Internal variables
+    CurrentPosition : REAL := 0.0;  // Current position of the valve actuator
+END_VAR
+VAR
+    SafetyCheck : BOOL := TRUE;      // Safety check for interlock status
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// Main Control Logic
+
+    // Check safety interlock before allowing valve operation
+    IF NOT SafetyInterlock THEN
+        ValveStatus := 2;           // Set status to error if safety interlock fails
+        ValveControlOpen := FALSE;  // Ensure the valve does not open
+        ValveControlClose := FALSE; // Ensure the valve does not close
+        ValveError := TRUE;         // Indicate an error due to safety interlock failure
+        RETURN;                     // Exit the function block if safety interlock fails
+    END_IF
+
+    // Handle valve operation logic in automatic or manual mode
+    IF Mode THEN
+        // Automatic Mode: Control valve position based on setpoint
+        IF Setpoint > ValvePosition THEN
+            // If setpoint is greater than current position, open valve
+            ValveControlOpen := TRUE;
+            ValveControlClose := FALSE;
+        ELSIF Setpoint < ValvePosition THEN
+            // If setpoint is less than current position, close valve
+            ValveControlOpen := FALSE;
+            ValveControlClose := TRUE;
+        ELSE
+            // If setpoint is equal to current position, stop valve
+            ValveControlOpen := FALSE;
+            ValveControlClose := FALSE;
+        END_IF
+        // Update the valve position in automatic mode
+        ValvePosition := Setpoint;
+    ELSE
+        // Manual Mode: Control valve position based on manual input
+        IF ManualPosition > ValvePosition THEN
+            // If manual position is greater than current position, open valve
+            ValveControlOpen := TRUE;
+            ValveControlClose := FALSE;
+        ELSIF ManualPosition < ValvePosition THEN
+            // If manual position is less than current position, close valve
+            ValveControlOpen := FALSE;
+            ValveControlClose := TRUE;
+        ELSE
+            // If manual position matches current position, stop valve
+            ValveControlOpen := FALSE;
+            ValveControlClose := FALSE;
+        END_IF
+        // Update the valve position in manual mode
+        ValvePosition := ManualPosition;
+    END_IF
+
+    // Open/Close Logic based on inputs
+    IF Open AND NOT Close THEN
+        // If Open is TRUE and Close is FALSE, open the valve
+        ValveControlOpen := TRUE;
+        ValveControlClose := FALSE;
+        ValveStatus := 1;             // Valve is open
+        ValvePosition := 100.0;       // Fully open
+    ELSIF Close AND NOT Open THEN
+        // If Close is TRUE and Open is FALSE, close the valve
+        ValveControlOpen := FALSE;
+        ValveControlClose := TRUE;
+        ValveStatus := 0;             // Valve is closed
+        ValvePosition := 0.0;         // Fully closed
+    ELSE
+        // If both Open and Close are FALSE, valve is held in the current position
+        ValveControlOpen := FALSE;
+        ValveControlClose := FALSE;
+    END_IF
+
+    // Status Monitoring: Update feedback and check for errors
+    IF ValveError THEN
+        // If there is an error, the valve cannot operate
+        ValveControlOpen := FALSE;
+        ValveControlClose := FALSE;
+        ValvePosition := 0.0;         // Set to closed position on error
+    END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Valve">
+      <LineId Id="43" Count="1" />
+      <LineId Id="46" Count="72" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
