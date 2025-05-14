@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analog Input Handler HMI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .progress {
+            height: 20px;
+            background-color: #4caf50;
+            width: 0;
+            transition: width 0.3s ease;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Analog Input Handler HMI</h1>
+
+        <!-- Input Parameters -->
+        <label for="analogInput">Analog Input (Raw Value):</label>
+        <input type="number" id="analogInput" placeholder="Enter raw analog input">
+
+        <label for="minRawValue">Min Raw Value:</label>
+        <input type="number" id="minRawValue" placeholder="Default: 4.0" value="4.0">
+
+        <label for="maxRawValue">Max Raw Value:</label>
+        <input type="number" id="maxRawValue" placeholder="Default: 20.0" value="20.0">
+
+        <label for="minScaledValue">Min Scaled Value:</label>
+        <input type="number" id="minScaledValue" placeholder="Default: 0.0" value="0.0">
+
+        <label for="maxScaledValue">Max Scaled Value:</label>
+        <input type="number" id="maxScaledValue" placeholder="Default: 100.0" value="100.0">
+
+        <button onclick="processAnalogInput()">Process Input</button>
+
+        <!-- Progress Bar for Scaled Value -->
+        <div class="progress-bar">
+            <div id="progress" class="progress"></div>
+        </div>
+
+        <!-- Output Values -->
+        <div class="output">
+            <p><strong>Scaled Value:</strong> <span id="scaledValue">0</span></p>
+            <p><strong>Signal Error:</strong> <span id="signalError">No</span></p>
+        </div>
+    </div>
+
+    <script>
+        function processAnalogInput() {
+            // Retrieve input values
+            const analogInput = parseFloat(document.getElementById("analogInput").value) || 0;
+            const minRawValue = parseFloat(document.getElementById("minRawValue").value) || 4.0;
+            const maxRawValue = parseFloat(document.getElementById("maxRawValue").value) || 20.0;
+            const minScaledValue = parseFloat(document.getElementById("minScaledValue").value) || 0.0;
+            const maxScaledValue = parseFloat(document.getElementById("maxScaledValue").value) || 100.0;
+
+            let scaledValue = 0;
+            let signalError = false;
+
+            // Main logic to process the analog input
+            if (analogInput < minRawValue) {
+                signalError = true;
+                scaledValue = minScaledValue;
+            } else if (analogInput > maxRawValue) {
+                signalError = true;
+                scaledValue = maxScaledValue;
+            } else {
+                const normalizedValue = (analogInput - minRawValue) / (maxRawValue - minRawValue);
+                scaledValue = (normalizedValue * (maxScaledValue - minScaledValue)) + minScaledValue;
+                signalError = false;
+            }
+
+            // Update HMI elements
+            document.getElementById("scaledValue").innerText = scaledValue.toFixed(2);
+            document.getElementById("signalError").innerText = signalError ? "Yes" : "No";
+
+            // Update progress bar
+            const progress = document.getElementById("progress");
+            const progressWidth = ((scaledValue - minScaledValue) / (maxScaledValue - minScaledValue)) * 100;
+            progress.style.width = `${Math.max(0, Math.min(100, progressWidth))}%`;
+        }
+    </script>
+</body>
+</html>
+
