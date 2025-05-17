@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
   <POU Name="FB_Fan" Id="{867051a1-ec69-4cdb-9975-48c3db32c72d}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK FanControl
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Fan
 
 VAR_INPUT
     // Fan Control Inputs
@@ -114,11 +114,11 @@ ELSE
     END_IF
 END_IF
 
-END_FUNCTION_BLOCK
 ]]></ST>
     </Implementation>
     <LineIds Name="FB_Fan">
-      <LineId Id="46" Count="75" />
+      <LineId Id="46" Count="73" />
+      <LineId Id="121" Count="0" />
       <LineId Id="9" Count="0" />
     </LineIds>
   </POU>

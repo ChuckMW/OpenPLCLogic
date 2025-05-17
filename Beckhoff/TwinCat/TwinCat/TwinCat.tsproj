@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4024.62">
-	<Project ProjectGUID="{FAAE12F2-2CCE-4E81-8BC2-CB4C63A9944B}" Target64Bit="true" ShowHideConfigurations="#x6">
+	<Project ProjectGUID="{FAAE12F2-2CCE-4E81-8BC2-CB4C63A9944B}" TargetNetId="144.110.81.15.1.1" Target64Bit="true" ShowHideConfigurations="#x6">
 		<System>
 			<Tasks>
 				<Task Id="3" Priority="20" CycleTime="100000" AmsPort="350" AdtTasks="true">
@@ -10,15 +10,23 @@
 		</System>
 		<Plc>
 			<Project GUID="{5197849E-C1B4-4514-8C2F-C9AF937228FF}" Name="TwinCat" PrjFilePath="TwinCat\TwinCat.plcproj" TmcFilePath="TwinCat\TwinCat.tmc" ReloadTmc="true" AmsPort="851" FileArchiveSettings="#x000e" SymbolicMapping="true">
-				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2">
+				<Instance Id="#x08502000" TcSmClass="TComPlcObjDef" KeepUnrestoredLinks="2" TmcPath="TwinCat\TwinCat.tmc" TmcHash="{FB169B9C-7873-A66F-546D-A6B420C5A960}">
 					<Name>TwinCat Instance</Name>
 					<CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
 					<Contexts>
 						<Context>
-							<Id>1</Id>
-							<Name>Default</Name>
+							<Id>0</Id>
+							<Name>PlcTask</Name>
+							<ManualConfig>
+								<OTCID>#x02010030</OTCID>
+							</ManualConfig>
+							<Priority>20</Priority>
+							<CycleTime>10000000</CycleTime>
 						</Context>
 					</Contexts>
+					<TaskPouOids>
+						<TaskPouOid Prio="20" OTCID="#x08502001"/>
+					</TaskPouOids>
 				</Instance>
 			</Project>
 		</Plc>

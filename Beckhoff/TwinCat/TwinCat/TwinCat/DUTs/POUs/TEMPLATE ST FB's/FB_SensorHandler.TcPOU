@@ -1,34 +1,34 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
-  <POU Name="FB_Sensor" Id="{e1f2fbed-d459-4b51-8a2b-1048cc518541}" SpecialFunc="None">
+  <POU Name="FB_SensorHandler" Id="{e1f2fbed-d459-4b51-8a2b-1048cc518541}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_SensorHandler
 VAR_INPUT
     // Inputs for sensor handling
-    RawDigitalInput : BOOL := FALSE;          // Raw digital input (e.g., switch, sensor)
+    RawDigitalInput : BOOL;          // Raw digital input (e.g., switch, sensor)
     RawAnalogInput : REAL := 0.0;              // Raw analog input (e.g., temperature, pressure)
     DebounceTime : TIME := T#200ms;            // Time duration for debouncing digital input
     AnalogMinValue : REAL := 0.0;              // Minimum raw analog value
     AnalogMaxValue : REAL := 100.0;            // Maximum raw analog value
-    OutputInversion : BOOL := FALSE;           // Flag to invert output (active-low logic)
+    OutputInversion : BOOL;           // Flag to invert output (active-low logic)
     FaultLimit : REAL := 10.0;                 // Fault detection limit for analog sensor
     HysteresisFactor : REAL := 2.0;            // Hysteresis factor for analog input (adjustable margin)
 END_VAR
 VAR_OUTPUT
     // Outputs
-    ProcessedDigitalInput : BOOL := FALSE;     // Processed and debounced digital input
+    ProcessedDigitalInput : BOOL;     			// Processed and debounced digital input
     ScaledAnalogInput : REAL := 0.0;           // Scaled analog value in engineering units
     ProcessedAnalogInput : REAL := 0.0;        // Processed and filtered analog input value
-    SensorStatus : BOOL := TRUE;               // TRUE if the sensor is working, FALSE if faulty
-    FaultFlag : BOOL := FALSE;                 // Fault detection flag for analog sensors
+    SensorStatus : BOOL ;               // TRUE if the sensor is working, FALSE if faulty
+    FaultFlag : BOOL ;                 // Fault detection flag for analog sensors
 END_VAR
 VAR
     // Internal variables
     DebounceTimer : TON;                       // Timer for debouncing
-    LastDigitalInput : BOOL := FALSE;          // Store last state of digital input for debounce comparison
+    LastDigitalInput : BOOL;          // Store last state of digital input for debounce comparison
     RawAnalogValue : REAL := 0.0;              // Store raw analog value before scaling
     LastAnalogValue : REAL := 0.0;             // Store the last processed analog value
-    FaultDetected : BOOL := FALSE;             // Internal fault detection for analog sensors
-    AnalogThresholdCrossed : BOOL := FALSE;    // Flag to track if the analog input crossed the hysteresis threshold
+    FaultDetected : BOOL;             // Internal fault detection for analog sensors
+    AnalogThresholdCrossed : BOOL ;    // Flag to track if the analog input crossed the hysteresis threshold
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -37,18 +37,27 @@ END_VAR
 // Main Control Method
 
     // Handle Digital Input (Debouncing)
-    IF RawDigitalInput <> LastDigitalInput THEN
+    IF RawDigitalInput = TRUE THEN
         DebounceTimer(IN := TRUE, PT := DebounceTime); // Start debounce timer
         IF DebounceTimer.Q THEN
             // Update the digital input value after debounce period
             ProcessedDigitalInput := RawDigitalInput;
-            DebounceTimer(IN := FALSE);  // Reset timer
+        
         END_IF
-    END_IF
+		
+		ELSIF RawDigitalInput = FALSE THEN
+ 
+			ProcessedDigitalInput := RawDigitalInput;
+			DebounceTimer(IN := FALSE);  // Reset timer
+			DebounceTimer(PT := T#0MS);  // Reset timer
+			
+			END_IF
+			
+   
     LastDigitalInput := RawDigitalInput; // Store the last state for comparison
 
     // Invert Output if needed
-    IF OutputInversion THEN
+    IF OutputInversion = TRUE THEN
         ProcessedDigitalInput := NOT ProcessedDigitalInput;  // Invert the digital input state
     END_IF
 
@@ -89,10 +98,17 @@ END_VAR
 
 ]]></ST>
     </Implementation>
-    <LineIds Name="FB_Sensor">
+    <LineIds Name="FB_SensorHandler">
       <LineId Id="199" Count="0" />
       <LineId Id="216" Count="1" />
-      <LineId Id="219" Count="51" />
+      <LineId Id="219" Count="8" />
+      <LineId Id="307" Count="0" />
+      <LineId Id="309" Count="2" />
+      <LineId Id="316" Count="1" />
+      <LineId Id="312" Count="0" />
+      <LineId Id="308" Count="0" />
+      <LineId Id="313" Count="0" />
+      <LineId Id="228" Count="42" />
       <LineId Id="9" Count="0" />
     </LineIds>
   </POU>
