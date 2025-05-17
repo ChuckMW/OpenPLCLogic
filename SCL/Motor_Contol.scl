@@ -1,0 +1,129 @@
+FUNCTION_BLOCK "Motor_Control"
+
+//------------------------------------------------------------------------------------
+//  Declaration of Variables
+//------------------------------------------------------------------------------------
+
+CONST
+    //constants
+END_CONST
+
+VAR_INPUT
+    //inputs
+    Motor_AUTO_MAN :Bool;
+    Start :Bool;
+    Stop :Bool;
+    Reset_Fault :Bool;
+    Interlock :Bool;
+    Run_Status_In :Bool;
+    Fail_Start :Time;
+    Fail_Stop :Time;
+    Start_Delay :Time;
+    //
+END_VAR
+
+VAR_IN_OUT
+    //in_outs
+END_VAR
+
+VAR_OUTPUT
+    //outputs
+    Start_CMD :Bool;
+    Run_Status_Out :Bool;
+    Fault_Status :Bool;
+    //
+END_VAR
+
+VAR
+    //variables
+    Fault :int;
+    Run_Time :Ton_Time;
+    Run_Time_MIN :Real;
+    Start_Delay :TON_Time;
+    Stop_Delay :TON_Time;
+    Fail_Start_TON :Ton_Time;
+    Fail_Stop_TON :Ton_Time;
+    //
+END_VAR
+
+VAR_TEMP
+    //temporary variables
+END_VAR
+
+//------------------------------------------------------------------------------------
+//  Code Section
+//------------------------------------------------------------------------------------
+
+BEGIN
+//
+REGION Start Logic
+    if (#Auto_Start = True) then
+    
+        #Start_Delay (IN := True, PT := #Start_Delay); //Set up start delay
+   
+     end_if;
+
+    if ((#Interlock = True) and (#Start = True and #Stop = False)) then //Motor start
+    
+        if (((#Motor_AUTO_MAN = False) and (#Start_Delay.Q = True)(*Manual*)) or ((#Motor_AUTO_MAN = True) and ((#Start = True OR #Start_CMD =True) and #Stop = False)) ) then
+    
+        #Start_CMD := True; // If the interlock is ture, auto/manual is false and start delay timer is done then start the motor   
+
+     end_if;
+
+    While ((#Start_CMD = True) and (#Run_Status_In = True)) do
+
+        #Run_Status_Out := True;
+    
+        else
+
+        #Run_Status_Out := False;
+
+     end_while;
+
+ END_REGION
+//
+//
+REGION Fault Logic
+    REGION Fault Clear
+    if ((#Reset_Fault = True) and (#start = False and #Stop = False) and (#Fault <> 0)) then
+        
+        #Fault := 0; // Set fault to 0 if conditions are met
+    end_if;
+    END_REGION
+
+    REGION Start Fault
+    if (#Start_CMD = True and #Run_Status_In = False) then // if the start command is sent but the run status is not recived
+    
+        #Fail_Start_TON (#Fail_Start_TON.IN := True, PT := #Fail_Start);
+        
+        while (#Fail_Start_TON.Q = True) do
+            
+            Fault := 1; //set fault integer to 1
+        end_while;
+    end_if;
+    END_REGION
+
+    REGION Stop Fault
+    if (#Stop_CMD = True and #Run_Status_In = True) then // if the stop command is sent but the run status is recived
+        
+        #Fail_Stop_TON (#Fail_Stop_TON.IN := True, PT := #Fail_Stop);
+        
+        while (#Fail_Stop_TON.Q = True) do
+            
+            Fault := 2; //set fault integer to 2
+        end_while;
+    end_if;
+    END_REGION
+END_REGION
+//
+REGION Running Time
+    
+    while (#Run_Status_Out = True) do
+
+        #Run_Time (IN := True, PT := T#60s)
+
+    end_while;
+END_REGION
+
+END_FUNCTION_BLOCK
