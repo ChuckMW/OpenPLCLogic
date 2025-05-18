@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <POU Name="FB_SensorHandler" Id="{e1f2fbed-d459-4b51-8a2b-1048cc518541}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_SensorHandler
 VAR_INPUT
@@ -33,6 +33,9 @@ END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[
+
+
+
 
 // Main Control Method
 
@@ -100,6 +103,7 @@ END_VAR
     </Implementation>
     <LineIds Name="FB_SensorHandler">
       <LineId Id="199" Count="0" />
+      <LineId Id="318" Count="2" />
       <LineId Id="216" Count="1" />
       <LineId Id="219" Count="8" />
       <LineId Id="307" Count="0" />

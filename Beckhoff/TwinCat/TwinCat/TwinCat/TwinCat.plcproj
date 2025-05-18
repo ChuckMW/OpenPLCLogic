@@ -9,7 +9,7 @@
     <WriteProductVersion>true</WriteProductVersion>
     <GenerateTpy>false</GenerateTpy>
     <Name>TwinCat</Name>
-    <ProgramVersion>3.1.4024.0</ProgramVersion>
+    <ProgramVersion>3.1.4026.14</ProgramVersion>
     <Application>{025c6407-2853-48db-b4b7-20c1d9394b51}</Application>
     <TypeSystem>{e517ae7a-b6de-4811-a72e-bfeb3173c440}</TypeSystem>
     <Implicit_Task_Info>{906f84e3-436b-470f-aff6-8a330aab2ec6}</Implicit_Task_Info>

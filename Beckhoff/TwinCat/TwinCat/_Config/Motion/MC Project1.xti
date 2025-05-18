@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<TcSmItem xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject" TcSmVersion="1.0" TcVersion="3.1.4026.14" ClassName="CMcPrjDef" SubType="70">
+	<MC Id="#x051f0010">
+		<Name>__FILENAME__</Name>
+		<MET Priority="3" CycleTimeNS="2000000" OTCID="#x02010050"/>
+		<MPT Priority="8" CycleTimeNS="10000000" OTCID="#x02010060"/>
+		<MJT Priority="32" OTCID="#x02010040"/>
+		<Axis File="Axis1 (Planar Mover).xti"/>
+	</MC>
+</TcSmItem>

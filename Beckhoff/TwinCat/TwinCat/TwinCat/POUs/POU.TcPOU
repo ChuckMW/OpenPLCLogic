@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.11">
   <POU Name="POU" Id="{e229df73-6924-4730-af5d-bc0348d092d4}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM POU
 VAR
@@ -99,7 +99,7 @@ END_VAR
                             <n />
                             <o>
                               <v n="Operand">""</v>
-                              <v n="Type">"REAL"</v>
+                              <n n="Type" />
                               <v n="Comment">""</v>
                               <v n="SymbolComment">""</v>
                               <v n="Address">""</v>
@@ -115,7 +115,7 @@ END_VAR
                             </o>
                             <o>
                               <v n="Operand">""</v>
-                              <v n="Type">"REAL"</v>
+                              <n n="Type" />
                               <v n="Comment">""</v>
                               <v n="SymbolComment">""</v>
                               <v n="Address">""</v>
@@ -192,7 +192,7 @@ END_VAR
                           <o>
                             <o n="Operand" t="Operand">
                               <v n="Operand">""</v>
-                              <v n="Type">"REAL"</v>
+                              <n n="Type" />
                               <v n="Comment">""</v>
                               <v n="SymbolComment">""</v>
                               <v n="Address">""</v>
@@ -230,7 +230,7 @@ END_VAR
                           <o>
                             <o n="Operand" t="Operand">
                               <v n="Operand">""</v>
-                              <v n="Type">"REAL"</v>
+                              <n n="Type" />
                               <v n="Comment">""</v>
                               <v n="SymbolComment">""</v>
                               <v n="Address">""</v>
@@ -249,7 +249,7 @@ END_VAR
                           <o>
                             <o n="Operand" t="Operand">
                               <v n="Operand">""</v>
-                              <v n="Type">"REAL"</v>
+                              <n n="Type" />
                               <v n="Comment">""</v>
                               <v n="SymbolComment">""</v>
                               <v n="Address">""</v>
@@ -287,7 +287,7 @@ END_VAR
                           <o>
                             <o n="Operand" t="Operand">
                               <v n="Operand">""</v>
-                              <v n="Type">"REAL"</v>
+                              <n n="Type" />
                               <v n="Comment">""</v>
                               <v n="SymbolComment">""</v>
                               <v n="Address">""</v>
