@@ -1,6 +1,6 @@
 # 🚀 OpenPLCLogic 🛠️
 
-Welcome to **OpenPLCLogic**! This is a shared repository of PLC (Programmable Logic Controller) code for automation projects. Whether you're learning, building, or just tinkering, there's something here for you! 🤖✨
+Welcome to **OpenPLCLogic**! This is a shared repository of Work-In-Progress PLC (Programmable Logic Controller) code for automation projects. Whether you're learning, building, or just tinkering, there's something here for you! 🤖✨
 
 ## 🌟 Features
 
