@@ -12,7 +12,7 @@
 			</Properties>
 		</DataType>
 	</DataTypes>
-	<Project ProjectGUID="{FAAE12F2-2CCE-4E81-8BC2-CB4C63A9944B}" Target64Bit="true" ShowHideConfigurations="#x6">
+	<Project ProjectGUID="{FAAE12F2-2CCE-4E81-8BC2-CB4C63A9944B}" TargetNetId="144.110.81.15.1.2" Target64Bit="true" ShowHideConfigurations="#x6">
 		<System>
 			<Settings>
 				<Debugger Priority="61"/>

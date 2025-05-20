@@ -10,8 +10,5 @@ END_VAR
     <Implementation>
       <ST><![CDATA[	]]></ST>
     </Implementation>
-    <LineIds Name="MAIN">
-      <LineId Id="4" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>
