@@ -101,19 +101,5 @@ END_VAR
 
 ]]></ST>
     </Implementation>
-    <LineIds Name="FB_SensorHandler">
-      <LineId Id="199" Count="0" />
-      <LineId Id="318" Count="2" />
-      <LineId Id="216" Count="1" />
-      <LineId Id="219" Count="8" />
-      <LineId Id="307" Count="0" />
-      <LineId Id="309" Count="2" />
-      <LineId Id="316" Count="1" />
-      <LineId Id="312" Count="0" />
-      <LineId Id="308" Count="0" />
-      <LineId Id="313" Count="0" />
-      <LineId Id="228" Count="42" />
-      <LineId Id="9" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>
