@@ -1,2 +1,0 @@
-# API assembly
-TcHmiSrv.Core|TcHmiSrvExtNet.Core
