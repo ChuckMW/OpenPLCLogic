@@ -1,0 +1,111 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_STATUS" Id="{13f4cc51-64d4-4d7e-aa86-d69fc6146653}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_STATUS
+VAR_INPUT
+    // Inputs for motor and valve control
+    MotorStartCommand : BOOL := FALSE;           // Command to start the motor
+    MotorStopCommand : BOOL := FALSE;            // Command to stop the motor
+    ValveOpenCommand : BOOL := FALSE;            // Command to open the valve
+    ValveCloseCommand : BOOL := FALSE;           // Command to close the valve
+    MotorStartFeedback : BOOL := FALSE;          // Feedback indicating if motor started
+    MotorStopFeedback : BOOL := FALSE;           // Feedback indicating if motor stopped
+    ValveOpenFeedback : BOOL := FALSE;           // Feedback indicating if valve opened
+    ValveCloseFeedback : BOOL := FALSE;          // Feedback indicating if valve closed
+    FaultThresholdTime : TIME := T#5s;           // Time threshold to detect motor/valve faults
+END_VAR
+VAR_OUTPUT
+    // Outputs for motor and valve fault detection
+    MotorStartFault : BOOL := FALSE;             // Fault flag for motor start
+    MotorStopFault : BOOL := FALSE;              // Fault flag for motor stop
+    ValveOpenFault : BOOL := FALSE;              // Fault flag for valve open
+    ValveCloseFault : BOOL := FALSE;             // Fault flag for valve close
+    MotorStatus : BOOL := FALSE;                 // Current status of motor (running or stopped)
+    ValveStatus : BOOL := FALSE;                 // Current status of valve (open or closed)
+    FaultDetected : BOOL := FALSE;               // General fault detection flag
+    FaultFlags : STRING := '';                   // Stores which faults are active (e.g., "Motor Start, Valve Open")
+  END_VAR
+VAR  
+    // Internal timers for fault detection timeouts
+    MotorStartTimer : TON;                       // Timer for motor start fault detection
+    MotorStopTimer : TON;                        // Timer for motor stop fault detection
+    ValveOpenTimer : TON;                        // Timer for valve open fault detection
+    ValveCloseTimer : TON;                       // Timer for valve close fault detection
+END_VAR
+
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Main Control Method
+
+    // Handle Motor Start Fault
+    IF MotorStartCommand AND NOT MotorStartFeedback THEN
+        // Start the motor and wait for feedback
+        MotorStartTimer(IN := TRUE, PT := FaultThresholdTime); // Start timer
+        IF MotorStartTimer.Q THEN
+            MotorStartFault := TRUE; // Motor failed to start in time
+            FaultFlags := CONCAT(FaultFlags, 'Motor Start,');
+        END_IF
+    ELSE
+        // Reset fault if motor started successfully
+        MotorStartFault := FALSE;
+        MotorStartTimer(IN := FALSE); // Reset timer
+        MotorStatus := TRUE;  // Motor is running
+    END_IF
+
+    // Handle Motor Stop Fault
+    IF MotorStopCommand AND NOT MotorStopFeedback THEN
+        // Stop the motor and wait for feedback
+        MotorStopTimer(IN := TRUE, PT := FaultThresholdTime); // Start timer
+        IF MotorStopTimer.Q THEN
+            MotorStopFault := TRUE; // Motor failed to stop in time
+            FaultFlags := CONCAT(FaultFlags, 'Motor Stop,');
+        END_IF
+    ELSE
+        // Reset fault if motor stopped successfully
+        MotorStopFault := FALSE;
+        MotorStopTimer(IN := FALSE); // Reset timer
+        MotorStatus := FALSE;  // Motor is stopped
+    END_IF
+
+    // Handle Valve Open Fault
+    IF ValveOpenCommand AND NOT ValveOpenFeedback THEN
+        // Open the valve and wait for feedback
+        ValveOpenTimer(IN := TRUE, PT := FaultThresholdTime); // Start timer
+        IF ValveOpenTimer.Q THEN
+            ValveOpenFault := TRUE; // Valve failed to open in time
+            FaultFlags := CONCAT(FaultFlags, 'Valve Open,');
+        END_IF
+    ELSE
+        // Reset fault if valve opened successfully
+        ValveOpenFault := FALSE;
+        ValveOpenTimer(IN := FALSE); // Reset timer
+        ValveStatus := TRUE; // Valve is open
+    END_IF
+
+    // Handle Valve Close Fault
+    IF ValveCloseCommand AND NOT ValveCloseFeedback THEN
+        // Close the valve and wait for feedback
+        ValveCloseTimer(IN := TRUE, PT := FaultThresholdTime); // Start timer
+        IF ValveCloseTimer.Q THEN
+            ValveCloseFault := TRUE; // Valve failed to close in time
+            FaultFlags := CONCAT(FaultFlags, 'Valve Close,');
+        END_IF
+    ELSE
+        // Reset fault if valve closed successfully
+        ValveCloseFault := FALSE;
+        ValveCloseTimer(IN := FALSE); // Reset timer
+        ValveStatus := FALSE; // Valve is closed
+    END_IF
+
+    // Set General Fault Detection Flag
+    FaultDetected := MotorStartFault OR MotorStopFault OR ValveOpenFault OR ValveCloseFault;
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_STATUS">
+      <LineId Id="58" Count="0" />
+      <LineId Id="60" Count="62" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

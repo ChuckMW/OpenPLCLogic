@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Sensor" Id="{e1f2fbed-d459-4b51-8a2b-1048cc518541}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_SensorHandler
+VAR_INPUT
+    // Inputs for sensor handling
+    RawDigitalInput : BOOL := FALSE;          // Raw digital input (e.g., switch, sensor)
+    RawAnalogInput : REAL := 0.0;              // Raw analog input (e.g., temperature, pressure)
+    DebounceTime : TIME := T#200ms;            // Time duration for debouncing digital input
+    AnalogMinValue : REAL := 0.0;              // Minimum raw analog value
+    AnalogMaxValue : REAL := 100.0;            // Maximum raw analog value
+    OutputInversion : BOOL := FALSE;           // Flag to invert output (active-low logic)
+    FaultLimit : REAL := 10.0;                 // Fault detection limit for analog sensor
+    HysteresisFactor : REAL := 2.0;            // Hysteresis factor for analog input (adjustable margin)
+END_VAR
+VAR_OUTPUT
+    // Outputs
+    ProcessedDigitalInput : BOOL := FALSE;     // Processed and debounced digital input
+    ScaledAnalogInput : REAL := 0.0;           // Scaled analog value in engineering units
+    ProcessedAnalogInput : REAL := 0.0;        // Processed and filtered analog input value
+    SensorStatus : BOOL := TRUE;               // TRUE if the sensor is working, FALSE if faulty
+    FaultFlag : BOOL := FALSE;                 // Fault detection flag for analog sensors
+END_VAR
+VAR
+    // Internal variables
+    DebounceTimer : TON;                       // Timer for debouncing
+    LastDigitalInput : BOOL := FALSE;          // Store last state of digital input for debounce comparison
+    RawAnalogValue : REAL := 0.0;              // Store raw analog value before scaling
+    LastAnalogValue : REAL := 0.0;             // Store the last processed analog value
+    FaultDetected : BOOL := FALSE;             // Internal fault detection for analog sensors
+    AnalogThresholdCrossed : BOOL := FALSE;    // Flag to track if the analog input crossed the hysteresis threshold
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+
+// Main Control Method
+
+    // Handle Digital Input (Debouncing)
+    IF RawDigitalInput <> LastDigitalInput THEN
+        DebounceTimer(IN := TRUE, PT := DebounceTime); // Start debounce timer
+        IF DebounceTimer.Q THEN
+            // Update the digital input value after debounce period
+            ProcessedDigitalInput := RawDigitalInput;
+            DebounceTimer(IN := FALSE);  // Reset timer
+        END_IF
+    END_IF
+    LastDigitalInput := RawDigitalInput; // Store the last state for comparison
+
+    // Invert Output if needed
+    IF OutputInversion THEN
+        ProcessedDigitalInput := NOT ProcessedDigitalInput;  // Invert the digital input state
+    END_IF
+
+    // Handle Analog Input (Scaling, Fault Detection, and Hysteresis)
+    RawAnalogValue := RawAnalogInput;  // Store raw analog value
+
+    // Check if the analog value is within the acceptable range
+    IF RawAnalogValue < AnalogMinValue OR RawAnalogValue > AnalogMaxValue THEN
+        FaultDetected := TRUE;
+    ELSE
+        FaultDetected := FALSE;
+    END_IF
+
+    // Apply Hysteresis: Only process the analog input if it exceeds the hysteresis threshold
+    IF NOT FaultDetected THEN
+        // Check if the current analog value crosses the threshold defined by the hysteresis factor
+        IF (RawAnalogValue > LastAnalogValue + HysteresisFactor) OR (RawAnalogValue < LastAnalogValue - HysteresisFactor) THEN
+            // Scale the analog value if it's beyond the hysteresis threshold
+            ScaledAnalogInput := ((RawAnalogValue - AnalogMinValue) / (AnalogMaxValue - AnalogMinValue)) * 100.0;
+            ProcessedAnalogInput := ScaledAnalogInput;  // Update the processed analog value
+            LastAnalogValue := RawAnalogValue;  // Store the last processed value for future comparison
+            AnalogThresholdCrossed := TRUE; // Mark that the threshold has been crossed
+        ELSE
+            AnalogThresholdCrossed := FALSE;  // The threshold has not been crossed, no update
+        END_IF
+        FaultFlag := FALSE;  // Clear fault flag if sensor is within range
+    ELSE
+        ProcessedAnalogInput := 0.0;  // Set scaled value to 0 if faulty
+        FaultFlag := TRUE;  // Indicate that the sensor is faulty
+    END_IF
+
+    // Update Sensor Status (Fault detection)
+    IF FaultDetected OR FaultFlag THEN
+        SensorStatus := FALSE;  // Sensor is in a fault condition
+    ELSE
+        SensorStatus := TRUE;   // Sensor is operational
+    END_IF
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Sensor">
+      <LineId Id="199" Count="0" />
+      <LineId Id="216" Count="1" />
+      <LineId Id="219" Count="51" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

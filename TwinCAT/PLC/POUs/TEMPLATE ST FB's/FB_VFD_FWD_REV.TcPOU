@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_VFD_FWD_REV" Id="{7a52fde9-b124-4846-acb5-494aee83dc72}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_VFD_FWD_REV
+VAR_INPUT
+    // Inputs
+    Start : BOOL;               // Start signal from operator
+    Stop : BOOL;                // Stop signal from operator
+    SafetyInterlock : BOOL;     // Safety interlock status (ensures safety before operation)
+END_VAR
+VAR_IN_OUT
+    SpeedSetpoint : REAL;       // Desired speed setpoint (input)
+    SpeedFeedback : REAL;       // Actual speed feedback from VFD
+    ManualSpeed : REAL;         // Manual speed setpoint (used in manual mode)
+    Mode : BOOL;                // Mode selection: TRUE = Automatic (PID mode), FALSE = Manual mode
+    BrakeSignal : BOOL;         // Brake signal to stop the fan
+END_VAR
+VAR_INPUT
+    Forward : BOOL;             // Forward direction control input
+    Reverse : BOOL;             // Reverse direction control input
+END_VAR
+VAR_OUTPUT
+    // Internal variables
+    VFDStatus : INT := 0;       // VFD status: 0 = stopped, 1 = running, 2 = error
+END_VAR
+VAR_IN_OUT
+    CurrentSpeed : REAL := 0.0; // Current speed of the VFD (controlled by PID or manually)
+END_VAR
+VAR
+    PIDController : PID;       // PID control instance for speed regulation (for automatic mode)
+    Timer : TON;                // Timer to manage speed ramp or delays
+    HoldingSpeed : REAL := 0.0; // Holds the current speed when holding function is active
+END_VAR
+VAR_INPUT
+    HoldingEnabled : BOOL := FALSE; // Indicates if the fan should hold the current speed
+END_VAR
+VAR_OUTPUT
+    // Outputs
+    VFDControlStart : BOOL;     // Output to start the VFD
+    VFDControlStop : BOOL;      // Output to stop the VFD
+    VFDControlSpeed : REAL;     // Output to set the speed of the VFD
+    VFDDirection : BOOL := FALSE; // Output for VFD direction control: TRUE = Forward, FALSE = Reverse
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Main Control Logic
+
+    // Check safety interlock before allowing operation
+    IF NOT SafetyInterlock THEN
+        VFDStatus := 2;          // Safety error (fan cannot run)
+        VFDControlStop := TRUE;  // Ensure VFD is stopped
+        VFDControlStart := FALSE; // Ensure start signal is false
+        VFDControlSpeed := 0.0;  // Set speed to zero
+        VFDDirection := FALSE;   // Set direction to reverse if safety fails
+        RETURN;                  // Exit the function block
+    END_IF
+
+    // Direction Control Logic: Forward or Reverse
+    IF Forward AND NOT Reverse THEN
+        VFDDirection := TRUE;    // Set direction to forward
+    ELSIF Reverse AND NOT Forward THEN
+        VFDDirection := FALSE;   // Set direction to reverse
+    ELSE
+        VFDDirection := FALSE;   // Default direction to reverse if both inputs are FALSE
+    END_IF
+
+    // Start/Stop Logic based on Start/Stop inputs
+    IF Start AND NOT Stop THEN
+        VFDStatus := 1;          // VFD is running
+        VFDControlStart := TRUE; // Send start signal to VFD
+        VFDControlStop := FALSE; // Ensure stop signal is false
+    ELSIF NOT Start AND Stop THEN
+        VFDStatus := 0;          // VFD is stopped
+        VFDControlStart := FALSE; // Send stop signal to VFD
+        VFDControlStop := TRUE;  // Set stop signal to TRUE
+        CurrentSpeed := 0.0;     // Reset speed to zero
+        VFDControlSpeed := 0.0;  // Set speed to zero
+    END_IF
+
+    // Mode Handling: Automatic or Manual Mode
+    IF Mode THEN
+        // Automatic Mode: Use PID control for speed regulation
+        PIDController.Setpoint := SpeedSetpoint;     // Set the desired speed (setpoint)
+        PIDController.ProcessVariable := SpeedFeedback; // Actual speed from feedback
+        PIDController.Run();                         // Run PID calculation
+        CurrentSpeed := PIDController.Output;        // Use PID output as the fan speed
+        VFDControlSpeed := CurrentSpeed;             // Output the speed to the VFD
+    ELSE
+        // Manual Mode: Use manual speed setpoint
+        CurrentSpeed := ManualSpeed;                 // Set the speed from manual input
+        VFDControlSpeed := CurrentSpeed;             // Output manual speed to VFD
+    END_IF
+
+    // Holding Function Logic: If enabled, hold the current speed
+    IF HoldingEnabled THEN
+        VFDControlSpeed := HoldingSpeed;  // Maintain the current speed if holding
+    END_IF
+
+    // Brake Control Logic: If brake signal is active, stop the fan immediately
+    IF BrakeSignal THEN
+        VFDStatus := 0;              // Stop the VFD immediately
+        VFDControlStop := TRUE;      // Apply brake (stop the VFD)
+        VFDControlStart := FALSE;    // Ensure no start signal is sent
+        VFDControlSpeed := 0.0;      // Set speed to zero
+    END_IF
+
+    // Status Monitoring and Update Feedback
+    IF VFDStatus = 1 THEN
+        // VFD is running, update feedback
+        SpeedFeedback := CurrentSpeed;  // Send feedback of current speed
+    ELSIF VFDStatus = 0 THEN
+        // VFD is stopped, speed is zero
+        SpeedFeedback := 0.0;           // No speed when stopped
+    ELSIF VFDStatus = 2 THEN
+        // VFD is in error or brake applied
+        SpeedFeedback := 0.0;           // No speed in error or brake mode
+    END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_VFD_FWD_REV">
+      <LineId Id="54" Count="0" />
+      <LineId Id="56" Count="70" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
